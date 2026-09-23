@@ -1,0 +1,40 @@
+name: Daily CRUD commit
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC = 09:00 Nairobi (EAT)
+  workflow_dispatch:       # lets you trigger it manually from the Actions tab
+
+permissions:
+  contents: write          # required to push
+
+concurrency: daily-commit
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run daily CRUD job
+        run: python crud.py daily
+
+      - name: Commit and push
+        env:
+          # Set these as repo Variables so commits are attributed to you
+          GIT_NAME: ${{ vars.COMMIT_NAME || 'github-actions[bot]' }}
+          GIT_EMAIL: ${{ vars.COMMIT_EMAIL || '41898282+github-actions[bot]@users.noreply.github.com' }}
+        run: |
+          git config user.name  "$GIT_NAME"
+          git config user.email "$GIT_EMAIL"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(daily): log $(date -u +%F)"
+          git push
